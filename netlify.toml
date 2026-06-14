@@ -3,6 +3,14 @@
   publish = "build"
   functions = "netlify/functions"
 
+# Route Spotify callback through the serverless function FIRST
+[[redirects]]
+  from = "/callback"
+  to = "/.netlify/functions/spotify-callback"
+  status = 200
+  force = true
+
+# Then catch all other routes for React SPA
 [[redirects]]
   from = "/*"
   to = "/index.html"
