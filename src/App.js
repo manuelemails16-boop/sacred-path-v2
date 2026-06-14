@@ -602,13 +602,14 @@ function MusicSection({ music, spotifyUrl, addSong, deleteSong, isAdmin, canAddM
   const handleAdd = async (track) => {
     setAdding(track.id);
     try {
-      await addToPlaylist(track.uri);
-      // Also save to Firebase music list for display
+      // Save to Firebase so everyone in the app sees it
       await addSong(track.name, track.artist, "");
       setAddedIds(prev => new Set([...prev, track.id]));
       setQuery(""); setResults([]);
+      // Open Spotify so user can add to playlist manually if desired
+      // window.open(track.spotifyUrl, "_blank");
     } catch(e) {
-      setSearchErr("Could not add to playlist. Make sure you have edit access.");
+      setSearchErr("Could not save song. Try again.");
     }
     setAdding(null);
   };
