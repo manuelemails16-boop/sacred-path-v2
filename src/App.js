@@ -627,15 +627,6 @@ const MQ = {
   qRef:    { fontSize:12, color:"#C9922A", fontFamily:"system-ui,sans-serif", marginTop:4, fontWeight:600 },
 };
 
-// ── Morning Questions ────────────────────────────────────────────────────────
-const MORNING_QUESTIONS = [
-  { q: "Holy Spirit, what are you doing today?", icon: "🕊️" },
-  { q: "Who can I put above myself today?", ref: "Romans 12:10", icon: "🤝" },
-  { q: "What can I thank the Lord for today?", icon: "🙏" },
-  { q: "How can I see myself and others the way the Lord sees us?", icon: "👁️" },
-  { q: "Father, how can I live to please you today?", ref: "Colossians 1:10", icon: "✝️" },
-  { q: "Who am I listening to and learning from today?", icon: "👂" },
-];
 
 function MorningQuestions() {
   const [expanded, setExpanded] = useState(false);
