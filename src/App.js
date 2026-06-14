@@ -569,6 +569,8 @@ function VerseOfDay() {
 }
 
 // ── Music Section (Spotify-powered) ──────────────────────────────────────────
+const SPOTIFY_INVITE_URL = "https://open.spotify.com/playlist/0ZT6N4Jr8pcF6wLpVlSKPA?si=61b686cea4d5406d&pt=1e4013f2954abc691e59429e50030f2e";
+
 function MusicSection({ music, spotifyUrl, addSong, deleteSong, isAdmin, canAddMusic, me, spotifyConnected, connectSpotify, disconnectSpotify, playlistTracks, loadPlaylistTracks }) {
   const [query, setQuery]           = useState("");
   const [results, setResults]       = useState([]);
@@ -645,6 +647,9 @@ function MusicSection({ music, spotifyUrl, addSong, deleteSong, isAdmin, canAddM
               <button style={MS.viewPlBtn} onClick={handleLoadPlaylist} disabled={loadingPl}>
                 {loadingPl ? "Loading…" : "View playlist"}
               </button>
+              <a href={SPOTIFY_INVITE_URL} target="_blank" rel="noreferrer" style={{...MS.viewPlBtn, textDecoration:"none", display:"flex", alignItems:"center"}}>
+                + Join playlist
+              </a>
               <button style={MS.disconnectBtn} onClick={disconnectSpotify}>Disconnect</button>
             </>
           ) : (
@@ -655,6 +660,9 @@ function MusicSection({ music, spotifyUrl, addSong, deleteSong, isAdmin, canAddM
           {!spotifyConnected && canAddMusic && (
             <button style={MS.addBtn} onClick={() => setShowManual(!showManual)}>+ Add manually</button>
           )}
+          <a href={SPOTIFY_INVITE_URL} target="_blank" rel="noreferrer" style={{...MS.addBtn, textDecoration:"none", display:"inline-flex", alignItems:"center", color:"#1DB954", borderColor:"#1DB954"}}>
+            ♪ Join Spotify playlist
+          </a>
         </div>
       </div>
 
