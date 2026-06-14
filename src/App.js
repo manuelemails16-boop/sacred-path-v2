@@ -570,6 +570,12 @@ function Modal({ modal, closeModal, groups, soloData, joinSolo, signInSolo, join
 
         {step==="group-signin" && (<>
           <div style={S.modalTitle}>Sign in to {groups[selGroup]?.name}</div>
+          {/* Auto-select current user if already signed in */}
+          {selUser === null && me && (() => {
+            const idx = (groups[selGroup]?.users||[]).findIndex(u => u.name === me.name);
+            if (idx >= 0) setTimeout(() => setSelUser(idx), 0);
+            return null;
+          })()}
           <div style={S.pickList}>
             {(groups[selGroup]?.users||[]).map((u,i)=>(
               <button key={i} style={{...S.pickBtn,...(selUser===i?{...S.pickBtnActive,borderColor:u.color}:{})}} onClick={()=>{setSelUser(i);setErr("");}}>
