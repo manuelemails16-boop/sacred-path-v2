@@ -47,6 +47,8 @@ export default function App() {
   const [syncing, setSyncing]       = useState(false);
   const [modal, setModal]           = useState(null);
   const [music, setMusic]           = useState([]); // [{id,name,artist,note,addedBy,addedAt}]
+  const [podcasts, setPodcasts]     = useState([]); // community recommendations
+  const [featuredPodcast, setFeaturedPodcast] = useState(null); // admin pick
   const [spotifyConnected, setSpotifyConnected] = useState(false);
   const [playlistTracks, setPlaylistTracks] = useState([]);
   const [spotifyUrl, setSpotifyUrl] = useState(""); // admin-set collaborative playlist URL
@@ -57,6 +59,13 @@ export default function App() {
     const u1 = onValue(ref(db, ROOT+"/groups"), snap => setGroups(snap.exists()?snap.val():{}));
     const u2 = onValue(ref(db, ROOT+"/solo"),   snap => setSoloData(snap.exists()?snap.val():{users:[],startDate:null}));
     const u3 = onValue(ref(db, ROOT+"/progress"), snap => setProgress(snap.exists()?snap.val():{}));
+    const u5 = onValue(ref(db, ROOT+"/podcasts"), snap => {
+      if (snap.exists()) {
+        const d = snap.val();
+        setPodcasts(d.recs ? Object.entries(d.recs).map(([id,v])=>({id,...v})).sort((a,b)=>b.addedAt-a.addedAt) : []);
+        setFeaturedPodcast(d.featured || null);
+      }
+    });
     const u4 = onValue(ref(db, ROOT+"/music"), snap => {
       if (snap.exists()) {
         const d = snap.val();
@@ -68,7 +77,7 @@ export default function App() {
     const s = loadSession();
     if (s) { setMemberships(s.memberships||[]); setActiveCtx(s.activeCtx||0); }
     setLoaded(true);
-    return () => { u1(); u2(); u3(); u4(); };
+    return () => { u1(); u2(); u3(); u4(); u5(); };
   }, []);
 
   // Persist session
@@ -149,6 +158,29 @@ export default function App() {
   const disconnectSpotify = () => { clearTokens(); setSpotifyConnected(false); setPlaylistTracks([]); showToast("Spotify disconnected."); };
   const loadPlaylistTracks = async () => {
     try { const tracks = await getPlaylistTracks(); setPlaylistTracks(tracks); } catch(e) {}
+  };
+
+  // Podcast helpers
+  const addPodcastRec = async (title, show, url, artwork, description) => {
+    if (!title||!show) return "Enter episode title and show name.";
+    const id = mkId();
+    await set(ref(db, ROOT+"/podcasts/recs/"+id), {
+      title: title.trim(), show: show.trim(), url: url||"", artwork: artwork||"",
+      description: description||"", addedBy: me?.name||"Anonymous", addedAt: Date.now()
+    });
+    return null;
+  };
+  const deletePodcastRec = async (id) => {
+    await remove(ref(db, ROOT+"/podcasts/recs/"+id));
+    showToast("Podcast removed.");
+  };
+  const setFeaturedPodcastAdmin = async (title, show, url, artwork, description) => {
+    await set(ref(db, ROOT+"/podcasts/featured"), {title, show, url, artwork, description});
+    showToast("Featured podcast updated!");
+  };
+  const clearFeaturedPodcast = async () => {
+    await remove(ref(db, ROOT+"/podcasts/featured"));
+    showToast("Featured podcast cleared.");
   };
 
   const toggleMusicPermission = async (mode, groupId, userIdx) => {
@@ -369,7 +401,7 @@ export default function App() {
       </header>
 
       <main style={S.main}>
-        {view==="home"        && <HomeView me={me} leaderboard={leaderboard} planDay={planDay} setView={setView} setModal={setModal} ctx={ctx} activeGroup={activeGroup} groups={groups} memberships={memberships} ctxLabel={ctxLabel} switchCtx={switchCtx} music={music} spotifyUrl={spotifyUrl} addSong={addSong} deleteSong={deleteSong} isAdmin={isAdmin} canAddMusic={canAddMusic} spotifyConnected={spotifyConnected} connectSpotify={connectSpotify} disconnectSpotify={disconnectSpotify} playlistTracks={playlistTracks} loadPlaylistTracks={loadPlaylistTracks} setSpotifyConnected={setSpotifyConnected} />}
+        {view==="home"        && <HomeView me={me} leaderboard={leaderboard} planDay={planDay} setView={setView} setModal={setModal} ctx={ctx} activeGroup={activeGroup} groups={groups} memberships={memberships} ctxLabel={ctxLabel} switchCtx={switchCtx} music={music} spotifyUrl={spotifyUrl} addSong={addSong} deleteSong={deleteSong} isAdmin={isAdmin} canAddMusic={canAddMusic} spotifyConnected={spotifyConnected} connectSpotify={connectSpotify} disconnectSpotify={disconnectSpotify} playlistTracks={playlistTracks} loadPlaylistTracks={loadPlaylistTracks} setSpotifyConnected={setSpotifyConnected} podcasts={podcasts} featuredPodcast={featuredPodcast} addPodcastRec={addPodcastRec} deletePodcastRec={deletePodcastRec} setFeaturedPodcastAdmin={setFeaturedPodcastAdmin} clearFeaturedPodcast={clearFeaturedPodcast} />}
         {view==="plan"        && <PlanView me={me} ctx={ctx} activeUsers={enrichedUsers} planDay={planDay} toggleDay={toggleDay} expandWeek={expandWeek} setExpandWeek={setExpandWeek} setModal={setModal} />}
         {view==="leaderboard" && <LeaderboardView leaderboard={leaderboard} planDay={planDay} ctx={ctx} activeGroup={activeGroup} />}
         {view==="admin"       && isAdmin && <AdminView groups={groups} soloData={soloData} deleteGroup={deleteGroup} removeGroupUser={removeGroupUser} removeSoloUser={removeSoloUser} createGroup={createGroup} spotifyUrl={spotifyUrl} setPlaylistUrl={setPlaylistUrl} toggleMusicPermission={toggleMusicPermission} />}
@@ -567,6 +599,234 @@ function VerseOfDay() {
     </div>
   );
 }
+
+// ── Podcast Section ──────────────────────────────────────────────────────────
+function PodcastSection({ podcasts, featuredPodcast, addPodcastRec, deletePodcastRec, setFeaturedPodcastAdmin, clearFeaturedPodcast, isAdmin, me }) {
+  const [showForm, setShowForm]     = useState(false);
+  const [showAdminForm, setShowAdminForm] = useState(false);
+  const [query, setQuery]           = useState("");
+  const [results, setResults]       = useState([]);
+  const [searching, setSearching]   = useState(false);
+  const [searchErr, setSearchErr]   = useState("");
+  const [adding, setAdding]         = useState(null);
+  const [addedIds, setAddedIds]     = useState(new Set());
+  // Admin featured form
+  const [adminQuery, setAdminQuery] = useState("");
+  const [adminResults, setAdminResults] = useState([]);
+  const [adminSearching, setAdminSearching] = useState(false);
+
+  const searchPodcasts = async (q, setRes, setLoading) => {
+    if (q.length < 2) { setRes([]); return; }
+    setLoading(true);
+    try {
+      const resp = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&media=podcast&entity=podcastEpisode&limit=6`);
+      const data = await resp.json();
+      setRes((data.results||[]).map(r => ({
+        id:          String(r.trackId || r.collectionId),
+        title:       r.trackName || r.collectionName,
+        show:        r.collectionName || r.artistName,
+        artwork:     r.artworkUrl60 || r.artworkUrl100,
+        url:         r.trackViewUrl || r.collectionViewUrl,
+        description: r.shortDescription || r.description || "",
+      })));
+    } catch(e) { setSearchErr("Search failed. Try again."); }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    const t = setTimeout(() => searchPodcasts(query, setResults, setSearching), 500);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  useEffect(() => {
+    const t = setTimeout(() => searchPodcasts(adminQuery, setAdminResults, setAdminSearching), 500);
+    return () => clearTimeout(t);
+  }, [adminQuery]);
+
+  const handleAddRec = async (ep) => {
+    setAdding(ep.id);
+    const e = await addPodcastRec(ep.title, ep.show, ep.url, ep.artwork, ep.description);
+    if (!e) { setAddedIds(prev => new Set([...prev, ep.id])); setQuery(""); setResults([]); }
+    setAdding(null);
+  };
+
+  const handleSetFeatured = async (ep) => {
+    await setFeaturedPodcastAdmin(ep.title, ep.show, ep.url, ep.artwork, ep.description);
+    setAdminQuery(""); setAdminResults([]); setShowAdminForm(false);
+  };
+
+  return (
+    <div style={PS.wrap}>
+      {/* Header */}
+      <div style={PS.header}>
+        <div style={PS.titleRow}>
+          <span style={PS.icon}>🎙️</span>
+          <div>
+            <div style={PS.title}>Podcasts</div>
+            <div style={PS.sub}>Episodes the group is listening to</div>
+          </div>
+        </div>
+        <div style={PS.headerBtns}>
+          {isAdmin && (
+            <button style={PS.adminBtn} onClick={() => setShowAdminForm(!showAdminForm)}>
+              ⭐ {showAdminForm ? "Cancel" : "Set featured"}
+            </button>
+          )}
+          {me && (
+            <button style={PS.addBtn} onClick={() => setShowForm(!showForm)}>
+              + Recommend episode
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Admin featured picker */}
+      {showAdminForm && isAdmin && (
+        <div style={PS.form}>
+          <div style={PS.formLabel}>Search for an episode to feature this week</div>
+          <input style={S.input} placeholder="Search Apple Podcasts…" value={adminQuery}
+            onChange={e => setAdminQuery(e.target.value)} />
+          {adminSearching && <div style={PS.searching}>Searching…</div>}
+          {adminResults.length > 0 && (
+            <div style={PS.resultsList}>
+              {adminResults.map(ep => (
+                <div key={ep.id} style={PS.resultRow}>
+                  {ep.artwork && <img src={ep.artwork} alt="" style={PS.artwork} />}
+                  <div style={PS.resultInfo}>
+                    <div style={PS.resultTitle}>{ep.title}</div>
+                    <div style={PS.resultShow}>{ep.show}</div>
+                  </div>
+                  <button style={PS.featureBtn} onClick={() => handleSetFeatured(ep)}>⭐ Feature</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Featured podcast */}
+      {featuredPodcast && (
+        <div style={PS.featured}>
+          <div style={PS.featuredLabel}>⭐ FEATURED THIS WEEK</div>
+          <div style={PS.featuredCard}>
+            {featuredPodcast.artwork && <img src={featuredPodcast.artwork} alt="" style={PS.featuredArt} />}
+            <div style={PS.featuredInfo}>
+              <div style={PS.featuredTitle}>{featuredPodcast.title}</div>
+              <div style={PS.featuredShow}>{featuredPodcast.show}</div>
+              {featuredPodcast.description && <div style={PS.featuredDesc}>{featuredPodcast.description.slice(0, 120)}…</div>}
+            </div>
+            <div style={PS.featuredActions}>
+              <a href={featuredPodcast.url} target="_blank" rel="noreferrer" style={PS.listenBtn}>Listen →</a>
+              {isAdmin && <button style={PS.clearBtn} onClick={clearFeaturedPodcast}>✕</button>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Community search form */}
+      {showForm && me && (
+        <div style={PS.form}>
+          <div style={PS.formLabel}>Search for an episode to recommend</div>
+          <input style={S.input} placeholder="Search Apple Podcasts…" value={query}
+            onChange={e => { setQuery(e.target.value); setSearchErr(""); }} />
+          {searching && <div style={PS.searching}>Searching…</div>}
+          {searchErr && <div style={S.authError}>{searchErr}</div>}
+          {results.length > 0 && (
+            <div style={PS.resultsList}>
+              {results.map(ep => (
+                <div key={ep.id} style={PS.resultRow}>
+                  {ep.artwork && <img src={ep.artwork} alt="" style={PS.artwork} />}
+                  <div style={PS.resultInfo}>
+                    <div style={PS.resultTitle}>{ep.title}</div>
+                    <div style={PS.resultShow}>{ep.show}</div>
+                  </div>
+                  <button style={{...PS.featureBtn, background:"#C9922A", borderColor:"#C9922A", color:"#fff"}}
+                    onClick={() => handleAddRec(ep)} disabled={adding===ep.id||addedIds.has(ep.id)}>
+                    {adding===ep.id ? "Adding…" : addedIds.has(ep.id) ? "✓" : "+ Add"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Community recs */}
+      {podcasts.length > 0 && (
+        <div>
+          <div style={PS.recTitle}>Community recommendations</div>
+          <div style={PS.grid}>
+            {podcasts.map(pod => (
+              <div key={pod.id} style={PS.card}>
+                <div style={PS.cardTop}>
+                  {pod.artwork && <img src={pod.artwork} alt="" style={PS.cardArt} />}
+                  <div style={PS.cardInfo}>
+                    <div style={PS.cardTitle}>{pod.title}</div>
+                    <div style={PS.cardShow}>{pod.show}</div>
+                  </div>
+                  {isAdmin && <button style={MS.deleteIconBtn} onClick={() => deletePodcastRec(pod.id)}>✕</button>}
+                </div>
+                <div style={PS.cardFooter}>
+                  <span style={PS.addedBy}>by {pod.addedBy}</span>
+                  <a href={pod.url} target="_blank" rel="noreferrer" style={PS.listenBtnSm}>Listen →</a>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {podcasts.length === 0 && !featuredPodcast && (
+        <div style={PS.empty}>No podcast recommendations yet — be the first! 🎙️</div>
+      )}
+    </div>
+  );
+}
+
+const PS = {
+  wrap:         { background:"#fff", border:"1px solid #E0D9CF", borderRadius:12, padding:"20px 24px", display:"flex", flexDirection:"column", gap:16 },
+  header:       { display:"flex", alignItems:"flex-start", justifyContent:"space-between", flexWrap:"wrap", gap:12 },
+  titleRow:     { display:"flex", alignItems:"center", gap:12 },
+  icon:         { fontSize:28 },
+  title:        { fontWeight:"bold", fontSize:17, color:"#1B2A4A" },
+  sub:          { fontSize:12, color:"#8A9BB0", fontFamily:"system-ui,sans-serif", marginTop:2 },
+  headerBtns:   { display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" },
+  adminBtn:     { background:"none", border:"1px solid #C9922A", color:"#C9922A", padding:"6px 14px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"system-ui,sans-serif" },
+  addBtn:       { background:"none", border:"1px solid #5C8C6A", color:"#5C8C6A", padding:"6px 14px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"system-ui,sans-serif" },
+  form:         { background:"#F7F3EC", borderRadius:10, padding:"16px", display:"flex", flexDirection:"column", gap:10 },
+  formLabel:    { fontSize:13, fontWeight:600, color:"#1B2A4A", fontFamily:"system-ui,sans-serif" },
+  searching:    { fontSize:13, color:"#8A9BB0", fontFamily:"system-ui,sans-serif" },
+  resultsList:  { background:"#fff", borderRadius:8, border:"1px solid #E0D9CF", overflow:"hidden" },
+  resultRow:    { display:"flex", alignItems:"center", gap:10, padding:"10px 14px", borderBottom:"1px solid #F7F3EC" },
+  artwork:      { width:44, height:44, borderRadius:6, objectFit:"cover", flexShrink:0 },
+  resultInfo:   { flex:1, minWidth:0 },
+  resultTitle:  { fontWeight:"bold", fontSize:13, color:"#1B2A4A", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" },
+  resultShow:   { fontSize:12, color:"#8A9BB0", fontFamily:"system-ui,sans-serif" },
+  featureBtn:   { background:"none", border:"1px solid #C9922A", color:"#C9922A", padding:"5px 12px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"system-ui,sans-serif", whiteSpace:"nowrap", flexShrink:0 },
+  featured:     { background:"linear-gradient(135deg,#1B2A4A,#2C3E60)", borderRadius:10, padding:"16px 20px", display:"flex", flexDirection:"column", gap:10 },
+  featuredLabel:{ fontSize:11, color:"#C9922A", fontFamily:"system-ui,sans-serif", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.08em" },
+  featuredCard: { display:"flex", alignItems:"flex-start", gap:14 },
+  featuredArt:  { width:64, height:64, borderRadius:8, objectFit:"cover", flexShrink:0 },
+  featuredInfo: { flex:1 },
+  featuredTitle:{ fontWeight:"bold", fontSize:15, color:"#F7F3EC", lineHeight:1.3 },
+  featuredShow: { fontSize:13, color:"#C9922A", fontFamily:"system-ui,sans-serif", marginTop:3 },
+  featuredDesc: { fontSize:12, color:"#8A9BB0", fontFamily:"system-ui,sans-serif", marginTop:6, lineHeight:1.5 },
+  featuredActions:{ display:"flex", flexDirection:"column", gap:6, flexShrink:0 },
+  listenBtn:    { background:"#C9922A", color:"#fff", padding:"7px 14px", borderRadius:6, fontSize:13, fontFamily:"system-ui,sans-serif", fontWeight:600, textDecoration:"none", whiteSpace:"nowrap", textAlign:"center" },
+  clearBtn:     { background:"none", border:"1px solid rgba(255,255,255,0.2)", color:"#8A9BB0", padding:"5px 10px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"system-ui,sans-serif" },
+  recTitle:     { fontWeight:"bold", fontSize:13, color:"#8A9BB0", fontFamily:"system-ui,sans-serif", textTransform:"uppercase", letterSpacing:"0.06em" },
+  grid:         { display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))", gap:12 },
+  card:         { background:"#F7F3EC", border:"1px solid #E0D9CF", borderRadius:10, padding:"14px", display:"flex", flexDirection:"column", gap:10 },
+  cardTop:      { display:"flex", alignItems:"flex-start", gap:10 },
+  cardArt:      { width:48, height:48, borderRadius:6, objectFit:"cover", flexShrink:0 },
+  cardInfo:     { flex:1, minWidth:0 },
+  cardTitle:    { fontWeight:"bold", fontSize:14, color:"#1B2A4A", lineHeight:1.3 },
+  cardShow:     { fontSize:12, color:"#5C8C6A", fontFamily:"system-ui,sans-serif", marginTop:2 },
+  cardFooter:   { display:"flex", alignItems:"center", justifyContent:"space-between" },
+  addedBy:      { fontSize:11, color:"#B0A898", fontFamily:"system-ui,sans-serif" },
+  listenBtnSm:  { fontSize:12, color:"#C9922A", fontFamily:"system-ui,sans-serif", fontWeight:600, textDecoration:"none" },
+  empty:        { color:"#8A9BB0", fontFamily:"system-ui,sans-serif", fontSize:14, textAlign:"center", padding:"16px 0" },
+};
 
 // ── Music Section (Spotify-powered) ──────────────────────────────────────────
 const SPOTIFY_INVITE_URL = "https://open.spotify.com/playlist/0ZT6N4Jr8pcF6wLpVlSKPA?si=61b686cea4d5406d&pt=1e4013f2954abc691e59429e50030f2e";
@@ -830,7 +1090,7 @@ function Loading() {
   return <div style={S.loadingWrap}><div style={S.loadingIcon}>✦</div><div style={S.loadingText}>Connecting…</div></div>;
 }
 
-function HomeView({ me, leaderboard, planDay, setView, setModal, ctx, activeGroup, groups, memberships, ctxLabel, switchCtx, music, spotifyUrl, addSong, deleteSong, isAdmin, canAddMusic, spotifyConnected, connectSpotify, disconnectSpotify, playlistTracks, loadPlaylistTracks, setSpotifyConnected }) {
+function HomeView({ me, leaderboard, planDay, setView, setModal, ctx, activeGroup, groups, memberships, ctxLabel, switchCtx, music, spotifyUrl, addSong, deleteSong, isAdmin, canAddMusic, spotifyConnected, connectSpotify, disconnectSpotify, playlistTracks, loadPlaylistTracks, setSpotifyConnected, podcasts, featuredPodcast, addPodcastRec, deletePodcastRec, setFeaturedPodcastAdmin, clearFeaturedPodcast }) {
   const leader = leaderboard[0];
   const checked = me?.checked || {};
   // Find the next unread non-rest day from day 1 onwards
@@ -888,6 +1148,7 @@ function HomeView({ me, leaderboard, planDay, setView, setModal, ctx, activeGrou
         </div>
       )}
 
+      <PodcastSection podcasts={podcasts} featuredPodcast={featuredPodcast} addPodcastRec={addPodcastRec} deletePodcastRec={deletePodcastRec} setFeaturedPodcastAdmin={setFeaturedPodcastAdmin} clearFeaturedPodcast={clearFeaturedPodcast} isAdmin={isAdmin} me={me} />
       <MusicSection music={music} spotifyUrl={spotifyUrl} addSong={addSong} deleteSong={deleteSong} isAdmin={isAdmin} canAddMusic={canAddMusic} me={me} spotifyConnected={spotifyConnected} connectSpotify={connectSpotify} disconnectSpotify={disconnectSpotify} playlistTracks={playlistTracks} loadPlaylistTracks={loadPlaylistTracks} />
     </div>
   );
