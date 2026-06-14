@@ -439,12 +439,7 @@ function Modal({ modal, closeModal, groups, soloData, joinSolo, signInSolo, join
   const [step, setStep]     = useState(modal.step||"landing");
   const [name, setName]     = useState(me?.name||"");
   const [pin, setPin]       = useState("");
-  // Auto-fill PIN when switching to group-join/signin if already signed in
-  useEffect(() => {
-    if ((step==="group-join" || step==="group-signin") && me?.pin && !pin) {
-      setPin(String(me.pin));
-    }
-  }, [step]);
+
   const [gpass, setGpass]   = useState("");
   const [selGroup, setSelGroup] = useState(null);
   const [selUser, setSelUser]   = useState(null);
@@ -457,7 +452,7 @@ function Modal({ modal, closeModal, groups, soloData, joinSolo, signInSolo, join
     let e = null;
     if (step==="solo-join")    e = await joinSolo(name, pin);
     if (step==="solo-signin")  e = await signInSolo(selUser, pin);
-    if (step==="group-join")   e = await joinGroup(selGroup, gpass, name, pin, isAdmin&&!gpass);
+    if (step==="group-join")   e = await joinGroup(selGroup, gpass, name, pin||String(me?.pin||""), isAdmin&&!gpass);
     if (step==="group-signin") e = await signInGroup(selGroup, selUser, pin);
     if (e) setErr(e);
   };
@@ -498,7 +493,7 @@ function Modal({ modal, closeModal, groups, soloData, joinSolo, signInSolo, join
         {step==="solo-join" && (<>
           <div style={S.modalTitle}>Create Solo Profile</div>
           <input style={S.input} placeholder="Your name" value={name} onChange={e=>{setName(e.target.value);setErr("");}} maxLength={20} />
-          <input style={S.input} placeholder="Set a PIN" value={pin} onChange={e=>{setPin(e.target.value);setErr("");}} maxLength={10} />
+          <input style={S.input} placeholder="Set a PIN" type="password" value={pin} onChange={e=>{setPin(e.target.value);setErr("");}} maxLength={10} />
           {err && <div style={S.authError}>{err}</div>}
           <div style={S.modalBtns}>
             <button style={S.secondaryBtn} onClick={()=>go("solo-choose")}>← Back</button>
@@ -515,7 +510,7 @@ function Modal({ modal, closeModal, groups, soloData, joinSolo, signInSolo, join
               </button>
             ))}
           </div>
-          <input style={S.input} placeholder="Your PIN" value={pin} onChange={e=>{setPin(e.target.value);setErr("");}} maxLength={10} />
+          <input style={S.input} placeholder="Your PIN" type="password" value={pin} onChange={e=>{setPin(e.target.value);setErr("");}} maxLength={10} />
           {err && <div style={S.authError}>{err}</div>}
           <div style={S.modalBtns}>
             <button style={S.secondaryBtn} onClick={()=>go("solo-choose")}>← Back</button>
@@ -559,10 +554,13 @@ function Modal({ modal, closeModal, groups, soloData, joinSolo, signInSolo, join
           <div style={S.modalTitle}>Join {groups[selGroup]?.name}</div>
           {isAdmin
             ? <div style={{fontSize:13,color:"#5C8C6A",fontFamily:"system-ui",background:"#D4EDE1",padding:"8px 12px",borderRadius:6}}>Admin — password not required</div>
-            : <input style={S.input} placeholder="Group password" value={gpass} onChange={e=>{setGpass(e.target.value);setErr("");}} maxLength={30} />
+            : <input style={S.input} placeholder="Group password" type="password" value={gpass} onChange={e=>{setGpass(e.target.value);setErr("");}} maxLength={30} />
           }
           <input style={S.input} placeholder="Your name in this group" value={name} onChange={e=>{setName(e.target.value);setErr("");}} maxLength={20} />
-          <input style={S.input} placeholder="Set your personal PIN (to sign in later)" value={pin} onChange={e=>{setPin(e.target.value);setErr("");}} maxLength={10} />
+          {!me
+            ? <input style={S.input} placeholder="Set a personal PIN" type="password" value={pin} onChange={e=>{setPin(e.target.value);setErr("");}} maxLength={10} />
+            : <div style={{fontSize:12,color:"#5C8C6A",fontFamily:"system-ui",background:"#D4EDE1",padding:"8px 12px",borderRadius:6}}>✓ Your existing PIN will be used automatically</div>
+          }
           {err && <div style={S.authError}>{err}</div>}
           <div style={S.modalBtns}>
             <button style={S.secondaryBtn} onClick={()=>go("group-action")}>← Back</button>
@@ -579,7 +577,7 @@ function Modal({ modal, closeModal, groups, soloData, joinSolo, signInSolo, join
               </button>
             ))}
           </div>
-          <input style={S.input} placeholder="Your personal PIN" value={pin} onChange={e=>{setPin(e.target.value);setErr("");}} maxLength={10} />
+          <input style={S.input} placeholder="Your personal PIN" type="password" value={pin} onChange={e=>{setPin(e.target.value);setErr("");}} maxLength={10} />
           {err && <div style={S.authError}>{err}</div>}
           <div style={S.modalBtns}>
             <button style={S.secondaryBtn} onClick={()=>go("group-action")}>← Back</button>
@@ -1373,7 +1371,7 @@ function AdminView({ groups, soloData, deleteGroup, removeGroupUser, removeSoloU
         <div style={S.adminCardTitle}>Create a new group</div>
         <div style={S.adminRow}>
           <input style={{...S.input,flex:1}} placeholder="Group name" value={gname} onChange={e=>{setGname(e.target.value);setErr("");}} maxLength={30} />
-          <input style={{...S.input,flex:1}} placeholder="Group password" value={gpass} onChange={e=>{setGpass(e.target.value);setErr("");}} maxLength={30} />
+          <input style={{...S.input,flex:1}} placeholder="Group password" type="password" value={gpass} onChange={e=>{setGpass(e.target.value);setErr("");}} maxLength={30} />
           <button style={S.primaryBtn} onClick={handleCreate}>Create</button>
         </div>
         {err&&<div style={S.authError}>{err}</div>}
