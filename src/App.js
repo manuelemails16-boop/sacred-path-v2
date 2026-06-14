@@ -669,67 +669,6 @@ const MORNING_QUESTIONS = [
   { q: "Who am I listening to and learning from today?", icon: "👂" },
 ];
 
-function MorningQuestions() {
-  const [expanded, setExpanded] = useState(false);
-  const now = new Date();
-  const eastern = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
-  const dateStr = eastern.toLocaleDateString("en-US", { weekday:"long", month:"long", day:"numeric" });
-
-  return (
-    <div style={MQ.wrap}>
-      <button style={MQ.header} onClick={() => setExpanded(!expanded)}>
-        <div style={MQ.headerLeft}>
-          <span style={MQ.headerIcon}>☀️</span>
-          <div>
-            <div style={MQ.title}>Morning Reflection</div>
-            <div style={MQ.sub}>{dateStr} · 6 questions to start your day</div>
-          </div>
-        </div>
-        <span style={MQ.chevron}>{expanded ? "▲" : "▼"}</span>
-      </button>
-
-      {expanded && (
-        <div style={MQ.body}>
-          {MORNING_QUESTIONS.map((item, i) => (
-            <div key={i} style={MQ.questionRow}>
-              <div style={MQ.numBadge}>{i + 1}</div>
-              <div style={MQ.questionContent}>
-                <div style={MQ.questionIcon}>{item.icon}</div>
-                <div style={MQ.questionText}>
-                  <span style={MQ.questionStr}>{item.q}</span>
-                  {item.ref && <span style={MQ.questionRef}> — {item.ref}</span>}
-                </div>
-              </div>
-            </div>
-          ))}
-          <div style={MQ.footer}>
-            Take a moment with each question before your reading today. 🙏
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-const MQ = {
-  wrap:            { background:"#1B2A4A", borderRadius:12, overflow:"hidden" },
-  header:          { width:"100%", background:"none", border:"none", padding:"20px 24px", display:"flex", alignItems:"center", justifyContent:"space-between", cursor:"pointer", textAlign:"left" },
-  headerLeft:      { display:"flex", alignItems:"center", gap:14 },
-  headerIcon:      { fontSize:28, flexShrink:0 },
-  title:           { fontWeight:"bold", fontSize:17, color:"#F7F3EC" },
-  sub:             { fontSize:12, color:"#8A9BB0", fontFamily:"system-ui,sans-serif", marginTop:2 },
-  chevron:         { fontSize:12, color:"#8A9BB0" },
-  body:            { borderTop:"1px solid rgba(255,255,255,0.08)", padding:"8px 24px 20px" },
-  questionRow:     { display:"flex", alignItems:"flex-start", gap:14, padding:"14px 0", borderBottom:"1px solid rgba(255,255,255,0.06)" },
-  numBadge:        { width:26, height:26, borderRadius:"50%", background:"#C9922A", color:"#fff", fontWeight:700, fontSize:12, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"system-ui,sans-serif", flexShrink:0, marginTop:1 },
-  questionContent: { display:"flex", alignItems:"flex-start", gap:10, flex:1 },
-  questionIcon:    { fontSize:18, flexShrink:0, marginTop:1 },
-  questionText:    { flex:1 },
-  questionStr:     { fontSize:15, color:"#F7F3EC", lineHeight:1.5, fontStyle:"italic" },
-  questionRef:     { fontSize:13, color:"#C9922A", fontFamily:"system-ui,sans-serif" },
-  footer:          { fontSize:13, color:"#8A9BB0", fontFamily:"system-ui,sans-serif", textAlign:"center", paddingTop:16, fontStyle:"italic" },
-};
-
 // ── Podcast Section ──────────────────────────────────────────────────────────
 function PodcastSection({ podcasts, featuredPodcast, addPodcastRec, deletePodcastRec, setFeaturedPodcastAdmin, clearFeaturedPodcast, isAdmin, me }) {
   const [showForm, setShowForm]     = useState(false);
@@ -1244,8 +1183,6 @@ function HomeView({ me, leaderboard, planDay, setView, setModal, ctx, activeGrou
       <MorningQuestions />
 
       {/* Morning Questions */}
-      <MorningQuestions />
-
       {/* Context switcher strip */}
       {memberships.length>1 && (
         <div style={S.ctxStrip}>
