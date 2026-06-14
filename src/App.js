@@ -439,6 +439,12 @@ function Modal({ modal, closeModal, groups, soloData, joinSolo, signInSolo, join
   const [step, setStep]     = useState(modal.step||"landing");
   const [name, setName]     = useState(me?.name||"");
   const [pin, setPin]       = useState("");
+  // Auto-fill PIN when switching to group-join/signin if already signed in
+  useEffect(() => {
+    if ((step==="group-join" || step==="group-signin") && me?.pin && !pin) {
+      setPin(String(me.pin));
+    }
+  }, [step]);
   const [gpass, setGpass]   = useState("");
   const [selGroup, setSelGroup] = useState(null);
   const [selUser, setSelUser]   = useState(null);
@@ -556,7 +562,7 @@ function Modal({ modal, closeModal, groups, soloData, joinSolo, signInSolo, join
             : <input style={S.input} placeholder="Group password" value={gpass} onChange={e=>{setGpass(e.target.value);setErr("");}} maxLength={30} />
           }
           <input style={S.input} placeholder="Your name in this group" value={name} onChange={e=>{setName(e.target.value);setErr("");}} maxLength={20} />
-          <input style={S.input} placeholder="Set a PIN" value={pin} onChange={e=>{setPin(e.target.value);setErr("");}} maxLength={10} />
+          <input style={S.input} placeholder="Set your personal PIN (to sign in later)" value={pin} onChange={e=>{setPin(e.target.value);setErr("");}} maxLength={10} />
           {err && <div style={S.authError}>{err}</div>}
           <div style={S.modalBtns}>
             <button style={S.secondaryBtn} onClick={()=>go("group-action")}>← Back</button>
@@ -573,7 +579,7 @@ function Modal({ modal, closeModal, groups, soloData, joinSolo, signInSolo, join
               </button>
             ))}
           </div>
-          <input style={S.input} placeholder="Your PIN" value={pin} onChange={e=>{setPin(e.target.value);setErr("");}} maxLength={10} />
+          <input style={S.input} placeholder="Your personal PIN" value={pin} onChange={e=>{setPin(e.target.value);setErr("");}} maxLength={10} />
           {err && <div style={S.authError}>{err}</div>}
           <div style={S.modalBtns}>
             <button style={S.secondaryBtn} onClick={()=>go("group-action")}>← Back</button>
