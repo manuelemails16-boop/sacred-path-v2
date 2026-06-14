@@ -307,10 +307,13 @@ export default function App() {
     return g ? (g.name+(u?" · "+u.name:"")) : "Group";
   };
 
-  // Handle Spotify OAuth callback
-  if (window.location.pathname === "/callback") {
+  // Handle Spotify OAuth callback — tokens land on home page in hash
+  const _hash = window.location.hash.slice(1);
+  const _hashParams = new URLSearchParams(_hash);
+  if (_hashParams.get("access_token") || window.location.pathname === "/callback") {
     return <SpotifyCallback onDone={(success) => {
       setSpotifyConnected(success);
+      window.history.replaceState({}, "", "/");
       window.location.href = "/";
     }} />;
   }
