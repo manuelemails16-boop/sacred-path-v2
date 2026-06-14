@@ -640,26 +640,28 @@ const MORNING_QUESTIONS = [
 function MorningQuestions() {
   const [expanded, setExpanded] = useState(false);
   return (
-    <div style={MQ.wrap}>
-      <button style={MQ.header} onClick={() => setExpanded(!expanded)}>
-        <div style={MQ.titleRow}>
-          <span style={MQ.icon}>☀️</span>
-          <div>
-            <div style={MQ.title}>Morning Reflection</div>
-            <div style={MQ.sub}>6 questions to start your day</div>
+    <div style={{background:"#1B2A4A", borderRadius:12, overflow:"hidden"}}>
+      <button
+        style={{width:"100%", background:"none", border:"none", padding:"20px 24px", display:"flex", alignItems:"center", justifyContent:"space-between", cursor:"pointer", gap:16}}
+        onClick={() => setExpanded(!expanded)}>
+        <div style={{display:"flex", alignItems:"center", gap:12}}>
+          <span style={{fontSize:26}}>☀️</span>
+          <div style={{textAlign:"left"}}>
+            <div style={{fontWeight:"bold", fontSize:17, color:"#F7F3EC"}}>Morning Reflection</div>
+            <div style={{fontSize:12, color:"#8A9BB0", fontFamily:"system-ui,sans-serif", marginTop:2}}>6 questions to start your day</div>
           </div>
         </div>
-        <span style={MQ.chevron}>{expanded ? "▲" : "▼"}</span>
+        <span style={{fontSize:12, color:"#8A9BB0"}}>{expanded ? "▲" : "▼"}</span>
       </button>
       {expanded && (
-        <div style={MQ.body}>
+        <div style={{borderTop:"1px solid rgba(255,255,255,0.08)", padding:"8px 0 16px"}}>
           {MORNING_QUESTIONS.map((item, i) => (
-            <div key={i} style={MQ.row}>
-              <div style={MQ.num}>{i + 1}</div>
-              <div style={MQ.qIcon}>{item.icon}</div>
-              <div style={MQ.qWrap}>
-                <div style={MQ.qText}>{item.q}</div>
-                {item.ref && <div style={MQ.qRef}>{item.ref}</div>}
+            <div key={i} style={{display:"flex", alignItems:"flex-start", gap:14, padding:"14px 24px", borderBottom:"1px solid rgba(255,255,255,0.05)"}}>
+              <span style={{fontSize:12, color:"#C9922A", fontFamily:"system-ui,sans-serif", fontWeight:700, minWidth:18, paddingTop:2}}>{i+1}.</span>
+              <span style={{fontSize:18, flexShrink:0, paddingTop:1}}>{item.icon}</span>
+              <div style={{flex:1}}>
+                <div style={{fontSize:15, color:"#F7F3EC", lineHeight:1.5, fontStyle:"italic"}}>{item.q}</div>
+                {item.ref && <div style={{fontSize:12, color:"#C9922A", fontFamily:"system-ui,sans-serif", marginTop:4, fontWeight:600}}>{item.ref}</div>}
               </div>
             </div>
           ))}
