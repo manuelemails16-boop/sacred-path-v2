@@ -610,38 +610,6 @@ const MORNING_QUESTIONS = [
   { q: "Who am I listening to and learning from today?",                   icon: "👂" },
 ];
 
-function MorningQuestions() {
-  const [expanded, setExpanded] = useState(false);
-  return (
-    <div style={MQ.wrap}>
-      <button style={MQ.header} onClick={() => setExpanded(!expanded)}>
-        <div style={MQ.titleRow}>
-          <span style={MQ.icon}>☀️</span>
-          <div>
-            <div style={MQ.title}>Morning Reflection</div>
-            <div style={MQ.sub}>6 questions to start your day with intention</div>
-          </div>
-        </div>
-        <span style={MQ.chevron}>{expanded ? "▲" : "▼"}</span>
-      </button>
-      {expanded && (
-        <div style={MQ.body}>
-          {MORNING_QUESTIONS.map((item, i) => (
-            <div key={i} style={MQ.row}>
-              <div style={MQ.num}>{i + 1}</div>
-              <div style={MQ.qIcon}>{item.icon}</div>
-              <div style={MQ.qWrap}>
-                <div style={MQ.qText}>{item.q}</div>
-                {item.ref && <div style={MQ.qRef}>{item.ref}</div>}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 const MQ = {
   wrap:    { background:"#1B2A4A", borderRadius:12, overflow:"hidden" },
   header:  { width:"100%", background:"none", border:"none", padding:"20px 24px", display:"flex", alignItems:"center", justifyContent:"space-between", cursor:"pointer", gap:16 },
@@ -668,6 +636,39 @@ const MORNING_QUESTIONS = [
   { q: "Father, how can I live to please you today?", ref: "Colossians 1:10", icon: "✝️" },
   { q: "Who am I listening to and learning from today?", icon: "👂" },
 ];
+
+function MorningQuestions() {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div style={MQ.wrap}>
+      <button style={MQ.header} onClick={() => setExpanded(!expanded)}>
+        <div style={MQ.titleRow}>
+          <span style={MQ.icon}>☀️</span>
+          <div>
+            <div style={MQ.title}>Morning Reflection</div>
+            <div style={MQ.sub}>6 questions to start your day</div>
+          </div>
+        </div>
+        <span style={MQ.chevron}>{expanded ? "▲" : "▼"}</span>
+      </button>
+      {expanded && (
+        <div style={MQ.body}>
+          {MORNING_QUESTIONS.map((item, i) => (
+            <div key={i} style={MQ.row}>
+              <div style={MQ.num}>{i + 1}</div>
+              <div style={MQ.qIcon}>{item.icon}</div>
+              <div style={MQ.qWrap}>
+                <div style={MQ.qText}>{item.q}</div>
+                {item.ref && <div style={MQ.qRef}>{item.ref}</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 // ── Podcast Section ──────────────────────────────────────────────────────────
 function PodcastSection({ podcasts, featuredPodcast, addPodcastRec, deletePodcastRec, setFeaturedPodcastAdmin, clearFeaturedPodcast, isAdmin, me }) {
