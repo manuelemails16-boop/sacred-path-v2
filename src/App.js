@@ -1647,7 +1647,7 @@ function PlanView({ me, ctx, activeUsers, planDay, toggleDay, expandWeek, setExp
                         <>
                           <span style={{...S.trackDot,background:entry.track==="T1"?"#3A7EBD":"#5C8C6A"}} />
                           <button style={S.chapterBtn} onClick={() => loadBibleChapter(entry.ch)}>{entry.ch}</button>
-                          {isMissed&&<span style={S.missedBadge}>missed</span>}
+
                           <div style={S.readerDots}>{readers.map((u,i)=><span key={i} style={{...S.readerDot,background:u.color}} title={u.name+" read this"} />)}</div>
                           <button style={{...S.checkBtn,...(isDone?S.checkBtnDone:{})}} onClick={()=>toggleDay(entry.day)}>{isDone?"✓":"○"}</button>
                         </>
