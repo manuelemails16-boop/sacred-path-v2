@@ -224,7 +224,7 @@ export default function App() {
   // NIV: de4e12af7f28f599-02, The Message: 97b9b9d76e4f0988-01
   const BIBLE_IDS = {
     NIV: "de4e12af7f28f599-02",
-    MSG: "97b9b9d76e4f0988-01",
+    MSG: "6f11a7de016f942e-01",
   };
 
   const parseChapterRef = (ch) => {
