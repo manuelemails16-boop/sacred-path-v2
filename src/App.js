@@ -47,6 +47,7 @@ export default function App() {
   const [syncing, setSyncing]       = useState(false);
   const [modal, setModal]           = useState(null);
   const [chatMessages, setChatMessages] = useState([]);
+  const [bibleChapter, setBibleChapter] = useState(null); // {ch, translation, text, loading}
   const [music, setMusic]           = useState([]); // [{id,name,artist,note,addedBy,addedAt}]
   const [podcasts, setPodcasts]     = useState([]); // community recommendations
   const [featuredPodcast, setFeaturedPodcast] = useState(null); // admin pick
@@ -215,6 +216,50 @@ export default function App() {
   const deleteMessage = async (msgId) => {
     if (!ctx?.groupId) return;
     await remove(ref(db, ROOT+"/chat/"+ctx.groupId+"/"+msgId));
+  };
+
+  // Bible reader
+  const BIBLE_API_KEY = "OFdsFdkZ6kvCdbA8Dez2X";
+  const BIBLE_IDS = {
+    NIV:     "78a9f6124f344018-01", // NIV
+    MSG:     "65eec8e0b60e656b-01", // The Message
+  };
+
+  const parseChapterRef = (ch) => {
+    // Convert "Matt 1" -> {book:"MAT", chapter:"1"}
+    const bookMap = {
+      "Matt":"MAT","Mark":"MRK","Luke":"LUK","John":"JHN","Acts":"ACT",
+      "Rom":"ROM","1Cor":"1CO","2Cor":"2CO","Gal":"GAL","Eph":"EPH",
+      "Phil":"PHP","Col":"COL","1Thess":"1TH","2Thess":"2TH",
+      "1Tim":"1TI","2Tim":"2TI","Titus":"TIT","Phlm":"PHM",
+      "Heb":"HEB","Jas":"JAS","1Pet":"1PE","2Pet":"2PE",
+      "1Jn":"1JN","2Jn":"2JN","3Jn":"3JN","Jude":"JUD","Rev":"REV",
+    };
+    const parts = ch.split(" ");
+    const bookKey = parts[0];
+    const chapter = parts[1];
+    const bookId = bookMap[bookKey];
+    if (!bookId || !chapter) return null;
+    return { bookId, chapter };
+  };
+
+  const loadBibleChapter = async (ch, translation="NIV") => {
+    const parsed = parseChapterRef(ch);
+    if (!parsed) return;
+    setBibleChapter({ ch, translation, text: null, loading: true });
+    try {
+      const bibleId = BIBLE_IDS[translation];
+      const chapterId = parsed.bookId + "." + parsed.chapter;
+      const resp = await fetch(
+        `https://api.scripture.api.bible/v1/bibles/${bibleId}/chapters/${chapterId}?content-type=text&include-notes=false&include-titles=true&include-chapter-numbers=false&include-verse-numbers=true&include-verse-spans=false`,
+        { headers: { "api-key": BIBLE_API_KEY } }
+      );
+      const data = await resp.json();
+      const text = data?.data?.content || "Chapter not found.";
+      setBibleChapter({ ch, translation, text, loading: false });
+    } catch(e) {
+      setBibleChapter({ ch, translation, text: "Failed to load chapter. Please try again.", loading: false });
+    }
   };
 
   const toggleMusicPermission = async (mode, groupId, userIdx) => {
@@ -436,7 +481,7 @@ export default function App() {
 
       <main style={S.main}>
         {view==="home"        && <HomeView me={me} leaderboard={leaderboard} planDay={planDay} setView={setView} setModal={setModal} ctx={ctx} activeGroup={activeGroup} groups={groups} memberships={memberships} ctxLabel={ctxLabel} switchCtx={switchCtx} music={music} spotifyUrl={spotifyUrl} addSong={addSong} deleteSong={deleteSong} isAdmin={isAdmin} canAddMusic={canAddMusic} spotifyConnected={spotifyConnected} connectSpotify={connectSpotify} disconnectSpotify={disconnectSpotify} playlistTracks={playlistTracks} loadPlaylistTracks={loadPlaylistTracks} setSpotifyConnected={setSpotifyConnected} podcasts={podcasts} featuredPodcast={featuredPodcast} addPodcastRec={addPodcastRec} deletePodcastRec={deletePodcastRec} setFeaturedPodcastAdmin={setFeaturedPodcastAdmin} clearFeaturedPodcast={clearFeaturedPodcast} />}
-        {view==="plan"        && <PlanView me={me} ctx={ctx} activeUsers={enrichedUsers} planDay={planDay} toggleDay={toggleDay} expandWeek={expandWeek} setExpandWeek={setExpandWeek} setModal={setModal} />}
+        {view==="plan"        && <PlanView me={me} ctx={ctx} activeUsers={enrichedUsers} planDay={planDay} toggleDay={toggleDay} expandWeek={expandWeek} setExpandWeek={setExpandWeek} setModal={setModal} loadBibleChapter={loadBibleChapter} bibleChapter={bibleChapter} setBibleChapter={setBibleChapter} />}
         {view==="leaderboard" && <LeaderboardView leaderboard={leaderboard} planDay={planDay} ctx={ctx} activeGroup={activeGroup} />}
         {view==="chat"        && <ChatView chatMessages={chatMessages} sendMessage={sendMessage} deleteMessage={deleteMessage} me={me} isAdmin={isAdmin} activeGroup={activeGroup} ctx={ctx} setModal={setModal} />}
         {view==="admin"       && isAdmin && <AdminView groups={groups} soloData={soloData} deleteGroup={deleteGroup} removeGroupUser={removeGroupUser} removeSoloUser={removeSoloUser} createGroup={createGroup} spotifyUrl={spotifyUrl} setPlaylistUrl={setPlaylistUrl} toggleMusicPermission={toggleMusicPermission} />}
@@ -1307,6 +1352,89 @@ function ChatView({ chatMessages, sendMessage, deleteMessage, me, isAdmin, activ
   );
 }
 
+// ── Bible Viewer ─────────────────────────────────────────────────────────────
+function BibleViewer({ bibleChapter, setBibleChapter, loadBibleChapter }) {
+  const { ch, translation, text, loading } = bibleChapter;
+
+  const switchTranslation = (t) => { if (t !== translation) loadBibleChapter(ch, t); };
+
+  // Clean up HTML tags from API response
+  const cleanText = (raw) => {
+    if (!raw) return "";
+    return raw
+      .replace(/<[^>]+>/g, "")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/
+
++/g, "
+
+")
+      .trim();
+  };
+
+  return (
+    <div style={BV.wrap}>
+      {/* Header */}
+      <div style={BV.header}>
+        <div style={BV.headerLeft}>
+          <span style={BV.chTitle}>{ch}</span>
+          <div style={BV.translationPills}>
+            {["NIV","MSG"].map(t => (
+              <button key={t} style={{...BV.pill,...(translation===t?BV.pillActive:{})}} onClick={() => switchTranslation(t)}>
+                {t === "MSG" ? "The Message" : t}
+              </button>
+            ))}
+          </div>
+        </div>
+        <button style={BV.closeBtn} onClick={() => setBibleChapter(null)}>✕ Close</button>
+      </div>
+
+      {/* Content */}
+      <div style={BV.body}>
+        {loading ? (
+          <div style={BV.loading}>Loading {ch}…</div>
+        ) : (
+          <div style={BV.text} onCopy={(e) => e.stopPropagation()}>
+            {cleanText(text).split("
+").map((line, i) => {
+              // Bold verse numbers like [1], [2] etc
+              const parts = line.split(/(\[\d+\])/g);
+              return (
+                <p key={i} style={BV.verse}>
+                  {parts.map((part, j) =>
+                    /^\[\d+\]$/.test(part)
+                      ? <sup key={j} style={BV.verseNum}>{part.replace(/[\[\]]/g,"")}</sup>
+                      : part
+                  )}
+                </p>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const BV = {
+  wrap:        { background:"#fff", border:"2px solid #C9922A", borderRadius:12, overflow:"hidden", marginBottom:8 },
+  header:      { display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 20px", borderBottom:"1px solid #E0D9CF", background:"#FFFCF5", flexWrap:"wrap", gap:10 },
+  headerLeft:  { display:"flex", alignItems:"center", gap:12, flexWrap:"wrap" },
+  chTitle:     { fontWeight:"bold", fontSize:18, color:"#1B2A4A" },
+  translationPills: { display:"flex", gap:6 },
+  pill:        { background:"none", border:"1px solid #D8D2C8", color:"#8A9BB0", padding:"4px 12px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"system-ui,sans-serif" },
+  pillActive:  { background:"#C9922A", border:"1px solid #C9922A", color:"#fff" },
+  closeBtn:    { background:"none", border:"1px solid #D8D2C8", color:"#8A9BB0", padding:"6px 12px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"system-ui,sans-serif" },
+  body:        { padding:"20px 24px", maxHeight:"60vh", overflowY:"auto" },
+  loading:     { textAlign:"center", color:"#8A9BB0", fontFamily:"system-ui,sans-serif", padding:"40px 0" },
+  text:        { userSelect:"text", WebkitUserSelect:"text" },
+  verse:       { fontSize:16, lineHeight:1.8, color:"#1B2A4A", marginBottom:8, fontFamily:"Georgia,serif" },
+  verseNum:    { fontSize:11, color:"#C9922A", fontWeight:700, fontFamily:"system-ui,sans-serif", marginRight:4, verticalAlign:"super" },
+};
+
 const CH = {
   wrap:        { display:"flex", flexDirection:"column", height:"calc(100vh - 140px)", maxWidth:760, margin:"0 auto" },
   header:      { display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 },
@@ -1419,7 +1547,7 @@ function QuickCard({icon,title,desc,action,actionLabel}) {
   return <div style={S.quickCard}><div style={S.quickIcon}>{icon}</div><div style={S.quickTitle}>{title}</div><div style={S.quickDesc}>{desc}</div><button style={S.quickBtn} onClick={action}>{actionLabel} →</button></div>;
 }
 
-function PlanView({ me, ctx, activeUsers, planDay, toggleDay, expandWeek, setExpandWeek, setModal }) {
+function PlanView({ me, ctx, activeUsers, planDay, toggleDay, expandWeek, setExpandWeek, setModal, loadBibleChapter, bibleChapter, setBibleChapter }) {
   const checked = me?.checked||{};
   const weeks = [];
   for (let w=0;w<52;w++) weeks.push(SCHEDULE.slice(w*7,w*7+7));
@@ -1449,6 +1577,11 @@ function PlanView({ me, ctx, activeUsers, planDay, toggleDay, expandWeek, setExp
         <div style={S.progressBar}><div style={{...S.progressFill,width:getCompletionPct(checked)+"%"}} /></div>
         <span style={S.progressLabel}>{getTotalRead(checked)} / 260 chapters</span>
       </div>
+      {/* Bible Chapter Viewer */}
+      {bibleChapter && (
+        <BibleViewer bibleChapter={bibleChapter} setBibleChapter={setBibleChapter} loadBibleChapter={loadBibleChapter} />
+      )}
+
       <div style={S.legendRow}>
         <span style={{...S.legendDot,background:"#3A7EBD"}} /><span style={S.legendTxt}>Gospels & Acts</span>
         <span style={{...S.legendDot,background:"#5C8C6A",marginLeft:16}} /><span style={S.legendTxt}>Epistles & Revelation</span>
@@ -1474,7 +1607,7 @@ function PlanView({ me, ctx, activeUsers, planDay, toggleDay, expandWeek, setExp
                       {entry.rest?<span style={S.restLabel}>Rest day</span>:(
                         <>
                           <span style={{...S.trackDot,background:entry.track==="T1"?"#3A7EBD":"#5C8C6A"}} />
-                          <span style={S.dayChapter}>{entry.ch}</span>
+                          <button style={S.chapterBtn} onClick={() => loadBibleChapter(entry.ch)}>{entry.ch}</button>
                           {isMissed&&<span style={S.missedBadge}>missed</span>}
                           <div style={S.readerDots}>{readers.map((u,i)=><span key={i} style={{...S.readerDot,background:u.color}} title={u.name+" read this"} />)}</div>
                           <button style={{...S.checkBtn,...(isDone?S.checkBtnDone:{})}} onClick={()=>toggleDay(entry.day)}>{isDone?"✓":"○"}</button>
@@ -1698,6 +1831,7 @@ const S = {
   dayNum:         { fontSize:11, color:"#8A9BB0", fontFamily:"system-ui,sans-serif", minWidth:44 },
   trackDot:       { width:8, height:8, borderRadius:"50%", flexShrink:0 },
   dayChapter:     { flex:1, fontSize:14, color:"#1B2A4A" },
+  chapterBtn:     { flex:1, fontSize:14, color:"#C9922A", background:"none", border:"none", cursor:"pointer", textAlign:"left", fontFamily:"Georgia,serif", textDecoration:"underline", textDecorationStyle:"dotted", padding:0 },
   restLabel:      { flex:1, fontSize:13, color:"#B0A898", fontStyle:"italic", fontFamily:"system-ui,sans-serif" },
   missedBadge:    { fontSize:10, color:"#C0514A", background:"#FEE8E6", padding:"2px 6px", borderRadius:4, fontFamily:"system-ui,sans-serif" },
   readerDots:     { display:"flex", gap:3 },
