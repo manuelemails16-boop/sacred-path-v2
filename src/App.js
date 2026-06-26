@@ -438,7 +438,7 @@ export default function App() {
         {view==="home"        && <HomeView me={me} leaderboard={leaderboard} planDay={planDay} setView={setView} setModal={setModal} ctx={ctx} activeGroup={activeGroup} groups={groups} memberships={memberships} ctxLabel={ctxLabel} switchCtx={switchCtx} music={music} spotifyUrl={spotifyUrl} addSong={addSong} deleteSong={deleteSong} isAdmin={isAdmin} canAddMusic={canAddMusic} spotifyConnected={spotifyConnected} connectSpotify={connectSpotify} disconnectSpotify={disconnectSpotify} playlistTracks={playlistTracks} loadPlaylistTracks={loadPlaylistTracks} setSpotifyConnected={setSpotifyConnected} podcasts={podcasts} featuredPodcast={featuredPodcast} addPodcastRec={addPodcastRec} deletePodcastRec={deletePodcastRec} setFeaturedPodcastAdmin={setFeaturedPodcastAdmin} clearFeaturedPodcast={clearFeaturedPodcast} />}
         {view==="plan"        && <PlanView me={me} ctx={ctx} activeUsers={enrichedUsers} planDay={planDay} toggleDay={toggleDay} expandWeek={expandWeek} setExpandWeek={setExpandWeek} setModal={setModal} />}
         {view==="leaderboard" && <LeaderboardView leaderboard={leaderboard} planDay={planDay} ctx={ctx} activeGroup={activeGroup} />}
-        {view==="chat"        && ctx?.groupId && <ChatView chatMessages={chatMessages} sendMessage={sendMessage} deleteMessage={deleteMessage} me={me} isAdmin={isAdmin} activeGroup={activeGroup} ctx={ctx} setModal={setModal} setAuthError={setAuthError} />}
+        {view==="chat"        && <ChatView chatMessages={chatMessages} sendMessage={sendMessage} deleteMessage={deleteMessage} me={me} isAdmin={isAdmin} activeGroup={activeGroup} ctx={ctx} setModal={setModal} />}
         {view==="admin"       && isAdmin && <AdminView groups={groups} soloData={soloData} deleteGroup={deleteGroup} removeGroupUser={removeGroupUser} removeSoloUser={removeSoloUser} createGroup={createGroup} spotifyUrl={spotifyUrl} setPlaylistUrl={setPlaylistUrl} toggleMusicPermission={toggleMusicPermission} />}
       </main>
     </div>
@@ -1188,7 +1188,7 @@ const MS = {
 };
 
 // ── Chat View ─────────────────────────────────────────────────────────────────
-function ChatView({ chatMessages, sendMessage, deleteMessage, me, isAdmin, activeGroup, ctx, setModal, setAuthError }) {
+function ChatView({ chatMessages, sendMessage, deleteMessage, me, isAdmin, activeGroup, ctx, setModal }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const bottomRef = useRef(null);
@@ -1225,7 +1225,7 @@ function ChatView({ chatMessages, sendMessage, deleteMessage, me, isAdmin, activ
         <div style={{fontSize:36}}>💬</div>
         <h2 style={CH.emptyTitle}>Group Chat</h2>
         <p style={CH.emptyText}>Join a group to access the group chat.</p>
-        <button style={S.primaryBtn} onClick={() => { setModal({type:"landing"}); setAuthError(""); }}>Join a group →</button>
+        <button style={S.primaryBtn} onClick={() => { setModal({type:"landing"}); }}>Join a group →</button>
       </div>
     );
   }
@@ -1235,7 +1235,7 @@ function ChatView({ chatMessages, sendMessage, deleteMessage, me, isAdmin, activ
       <div style={CH.empty}>
         <div style={{fontSize:36}}>💬</div>
         <h2 style={CH.emptyTitle}>Sign in to chat</h2>
-        <button style={S.primaryBtn} onClick={() => { setModal({type:"landing"}); setAuthError(""); }}>Sign in →</button>
+        <button style={S.primaryBtn} onClick={() => { setModal({type:"landing"}); }}>Sign in →</button>
       </div>
     );
   }
