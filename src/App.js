@@ -1882,3 +1882,4 @@ const S = {
   primaryBtn:     { background:"#C9922A", color:"#fff", border:"none", padding:"9px 20px", borderRadius:8, cursor:"pointer", fontSize:14, fontFamily:"system-ui,sans-serif", fontWeight:600, whiteSpace:"nowrap" },
   secondaryBtn:   { background:"none", color:"#8A9BB0", border:"1px solid #D8D2C8", padding:"9px 20px", borderRadius:8, cursor:"pointer", fontSize:14, fontFamily:"system-ui,sans-serif" },
 };
+/* Thu Jun 25 20:47:31 EDT 2026 */
