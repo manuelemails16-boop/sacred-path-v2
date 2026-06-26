@@ -1354,13 +1354,13 @@ function ChatView({ chatMessages, sendMessage, deleteMessage, me, isAdmin, activ
   );
 }
 
+
 // ── Bible Viewer ─────────────────────────────────────────────────────────────
 function BibleViewer({ bibleChapter, setBibleChapter, loadBibleChapter }) {
   const { ch, translation, text, loading } = bibleChapter;
 
   const switchTranslation = (t) => { if (t !== translation) loadBibleChapter(ch, t); };
 
-  // Clean up HTML tags from API response
   const cleanText = (raw) => {
     if (!raw) return "";
     return raw
@@ -1369,13 +1369,11 @@ function BibleViewer({ bibleChapter, setBibleChapter, loadBibleChapter }) {
       .replace(/&amp;/g, "&")
       .replace(/&lt;/g, "<")
       .replace(/&gt;/g, ">")
-      .replace(/\n\n+/g, "\n\n")
       .trim();
   };
 
   return (
     <div style={BV.wrap}>
-      {/* Header */}
       <div style={BV.header}>
         <div style={BV.headerLeft}>
           <span style={BV.chTitle}>{ch}</span>
@@ -1387,29 +1385,14 @@ function BibleViewer({ bibleChapter, setBibleChapter, loadBibleChapter }) {
             ))}
           </div>
         </div>
-        <button style={BV.closeBtn} onClick={() => setBibleChapter(null)}>✕ Close</button>
+        <button style={BV.closeBtn} onClick={() => setBibleChapter(null)}>Close</button>
       </div>
-
-      {/* Content */}
       <div style={BV.body}>
         {loading ? (
-          <div style={BV.loading}>Loading {ch}…</div>
+          <div style={BV.loading}>Loading {ch}...</div>
         ) : (
-          <div style={BV.text} onCopy={(e) => e.stopPropagation()}>
-            {cleanText(text).split("
-").map((line, i) => {
-              // Bold verse numbers like [1], [2] etc
-              const parts = line.split(/(\[\d+\])/g);
-              return (
-                <p key={i} style={BV.verse}>
-                  {parts.map((part, j) =>
-                    /^\[\d+\]$/.test(part)
-                      ? <sup key={j} style={BV.verseNum}>{part.replace(/[\[\]]/g,"")}</sup>
-                      : part
-                  )}
-                </p>
-              );
-            })}
+          <div style={BV.text}>
+            {cleanText(text)}
           </div>
         )}
       </div>
@@ -1428,10 +1411,9 @@ const BV = {
   closeBtn:    { background:"none", border:"1px solid #D8D2C8", color:"#8A9BB0", padding:"6px 12px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"system-ui,sans-serif" },
   body:        { padding:"20px 24px", maxHeight:"60vh", overflowY:"auto" },
   loading:     { textAlign:"center", color:"#8A9BB0", fontFamily:"system-ui,sans-serif", padding:"40px 0" },
-  text:        { userSelect:"text", WebkitUserSelect:"text" },
-  verse:       { fontSize:16, lineHeight:1.8, color:"#1B2A4A", marginBottom:8, fontFamily:"Georgia,serif" },
-  verseNum:    { fontSize:11, color:"#C9922A", fontWeight:700, fontFamily:"system-ui,sans-serif", marginRight:4, verticalAlign:"super" },
+  text:        { fontSize:16, lineHeight:1.9, color:"#1B2A4A", fontFamily:"Georgia,serif", whiteSpace:"pre-wrap", userSelect:"text", WebkitUserSelect:"text" },
 };
+
 
 const CH = {
   wrap:        { display:"flex", flexDirection:"column", height:"calc(100vh - 140px)", maxWidth:760, margin:"0 auto" },
