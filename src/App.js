@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { ref, onValue, set, get, remove } from "firebase/database";
 import { db } from "./firebase";
 import {
@@ -46,6 +46,7 @@ export default function App() {
   const [loaded, setLoaded]         = useState(false);
   const [syncing, setSyncing]       = useState(false);
   const [modal, setModal]           = useState(null);
+  const [chatMessages, setChatMessages] = useState([]);
   const [music, setMusic]           = useState([]); // [{id,name,artist,note,addedBy,addedAt}]
   const [podcasts, setPodcasts]     = useState([]); // community recommendations
   const [featuredPodcast, setFeaturedPodcast] = useState(null); // admin pick
@@ -89,6 +90,23 @@ export default function App() {
   const ctx = memberships[activeCtx] || null;
   const activeGroup = ctx?.groupId ? groups[ctx.groupId] : null;
   const startDate = ctx?.mode==="group" ? activeGroup?.startDate : soloData.startDate;
+
+  // Chat listener - updates when active group changes
+  useEffect(() => {
+    if (!ctx?.groupId) { setChatMessages([]); return; }
+    const chatRef = ref(db, ROOT+"/chat/"+ctx.groupId);
+    const unsub = onValue(chatRef, snap => {
+      if (snap.exists()) {
+        const msgs = Object.entries(snap.val())
+          .map(([id,v]) => ({id,...v}))
+          .sort((a,b) => a.sentAt - b.sentAt);
+        setChatMessages(msgs);
+      } else {
+        setChatMessages([]);
+      }
+    });
+    return () => unsub();
+  }, [ctx?.groupId]);
 
   useEffect(() => {
     if (!startDate) { setPlanDay(1); return; }
@@ -181,6 +199,22 @@ export default function App() {
   const clearFeaturedPodcast = async () => {
     await remove(ref(db, ROOT+"/podcasts/featured"));
     showToast("Featured podcast cleared.");
+  };
+
+  // Chat helpers
+  const sendMessage = async (text) => {
+    if (!me || !ctx?.groupId || !text.trim()) return;
+    const id = mkId();
+    await set(ref(db, ROOT+"/chat/"+ctx.groupId+"/"+id), {
+      text: text.trim(),
+      senderName: me.name,
+      senderColor: me.color,
+      sentAt: Date.now(),
+    });
+  };
+  const deleteMessage = async (msgId) => {
+    if (!ctx?.groupId) return;
+    await remove(ref(db, ROOT+"/chat/"+ctx.groupId+"/"+msgId));
   };
 
   const toggleMusicPermission = async (mode, groupId, userIdx) => {
@@ -371,7 +405,7 @@ export default function App() {
             {isAdmin && <span style={S.adminBadge}>Admin</span>}
           </div>
           <nav style={S.nav}>
-            {[["home","Home"],["plan","My Plan"],["leaderboard","Rankings"]].map(([v,l])=>(
+            {[["home","Home"],["plan","My Plan"],["leaderboard","Rankings"],["chat","💬 Chat"]].map(([v,l])=>(
               <button key={v} style={{...S.navBtn,...(view===v?S.navActive:{})}} onClick={()=>setView(v)}>{l}</button>
             ))}
             {isAdmin && <button style={{...S.navBtn,...(view==="admin"?S.navActive:{})}} onClick={()=>setView("admin")}>⚙ Admin</button>}
@@ -404,6 +438,7 @@ export default function App() {
         {view==="home"        && <HomeView me={me} leaderboard={leaderboard} planDay={planDay} setView={setView} setModal={setModal} ctx={ctx} activeGroup={activeGroup} groups={groups} memberships={memberships} ctxLabel={ctxLabel} switchCtx={switchCtx} music={music} spotifyUrl={spotifyUrl} addSong={addSong} deleteSong={deleteSong} isAdmin={isAdmin} canAddMusic={canAddMusic} spotifyConnected={spotifyConnected} connectSpotify={connectSpotify} disconnectSpotify={disconnectSpotify} playlistTracks={playlistTracks} loadPlaylistTracks={loadPlaylistTracks} setSpotifyConnected={setSpotifyConnected} podcasts={podcasts} featuredPodcast={featuredPodcast} addPodcastRec={addPodcastRec} deletePodcastRec={deletePodcastRec} setFeaturedPodcastAdmin={setFeaturedPodcastAdmin} clearFeaturedPodcast={clearFeaturedPodcast} />}
         {view==="plan"        && <PlanView me={me} ctx={ctx} activeUsers={enrichedUsers} planDay={planDay} toggleDay={toggleDay} expandWeek={expandWeek} setExpandWeek={setExpandWeek} setModal={setModal} />}
         {view==="leaderboard" && <LeaderboardView leaderboard={leaderboard} planDay={planDay} ctx={ctx} activeGroup={activeGroup} />}
+        {view==="chat"        && ctx?.groupId && <ChatView chatMessages={chatMessages} sendMessage={sendMessage} deleteMessage={deleteMessage} me={me} isAdmin={isAdmin} activeGroup={activeGroup} ctx={ctx} setModal={setModal} setAuthError={setAuthError} />}
         {view==="admin"       && isAdmin && <AdminView groups={groups} soloData={soloData} deleteGroup={deleteGroup} removeGroupUser={removeGroupUser} removeSoloUser={removeSoloUser} createGroup={createGroup} spotifyUrl={spotifyUrl} setPlaylistUrl={setPlaylistUrl} toggleMusicPermission={toggleMusicPermission} />}
       </main>
     </div>
@@ -1150,6 +1185,153 @@ const MS = {
   spotifyIconTxt: { color:"#fff", fontSize:11 },
   deleteIconBtn:  { width:32, height:32, borderRadius:"50%", background:"none", border:"1px solid #D8D2C8", cursor:"pointer", fontSize:12, color:"#C0514A", display:"flex", alignItems:"center", justifyContent:"center" },
   addedBy:        { fontSize:11, color:"#B0A898", fontFamily:"system-ui,sans-serif" },
+};
+
+// ── Chat View ─────────────────────────────────────────────────────────────────
+function ChatView({ chatMessages, sendMessage, deleteMessage, me, isAdmin, activeGroup, ctx, setModal, setAuthError }) {
+  const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
+  const bottomRef = useRef(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages]);
+
+  const handleSend = async () => {
+    if (!text.trim() || sending) return;
+    setSending(true);
+    await sendMessage(text);
+    setText("");
+    setSending(false);
+  };
+
+  const formatTime = (ts) => {
+    const d = new Date(ts);
+    return d.toLocaleTimeString("en-US", { hour:"numeric", minute:"2-digit", hour12:true });
+  };
+
+  const formatDate = (ts) => {
+    const d = new Date(ts);
+    const today = new Date();
+    if (d.toDateString() === today.toDateString()) return "Today";
+    const yesterday = new Date(today); yesterday.setDate(today.getDate()-1);
+    if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
+    return d.toLocaleDateString("en-US", { month:"short", day:"numeric" });
+  };
+
+  if (!ctx?.groupId) {
+    return (
+      <div style={CH.empty}>
+        <div style={{fontSize:36}}>💬</div>
+        <h2 style={CH.emptyTitle}>Group Chat</h2>
+        <p style={CH.emptyText}>Join a group to access the group chat.</p>
+        <button style={S.primaryBtn} onClick={() => { setModal({type:"landing"}); setAuthError(""); }}>Join a group →</button>
+      </div>
+    );
+  }
+
+  if (!me) {
+    return (
+      <div style={CH.empty}>
+        <div style={{fontSize:36}}>💬</div>
+        <h2 style={CH.emptyTitle}>Sign in to chat</h2>
+        <button style={S.primaryBtn} onClick={() => { setModal({type:"landing"}); setAuthError(""); }}>Sign in →</button>
+      </div>
+    );
+  }
+
+  // Group messages by date
+  let lastDate = null;
+
+  return (
+    <div style={CH.wrap}>
+      <div style={CH.header}>
+        <h2 style={CH.title}>💬 {activeGroup?.name}</h2>
+        <span style={CH.memberCount}>{(activeGroup?.users||[]).length} members</span>
+      </div>
+
+      <div style={CH.feed}>
+        {chatMessages.length === 0 && (
+          <div style={CH.noMessages}>No messages yet — say something! 👋</div>
+        )}
+        {chatMessages.map((msg, i) => {
+          const msgDate = formatDate(msg.sentAt);
+          const showDate = msgDate !== lastDate;
+          lastDate = msgDate;
+          const isMe = msg.senderName === me?.name;
+          return (
+            <div key={msg.id}>
+              {showDate && <div style={CH.dateDivider}>{msgDate}</div>}
+              <div style={{...CH.msgRow, ...(isMe ? CH.msgRowMe : {})}}>
+                {!isMe && (
+                  <div style={{...CH.avatar, background: msg.senderColor}}>
+                    {msg.senderName[0].toUpperCase()}
+                  </div>
+                )}
+                <div style={{...CH.bubble, ...(isMe ? CH.bubbleMe : CH.bubbleThem)}}>
+                  {!isMe && <div style={CH.senderName}>{msg.senderName}</div>}
+                  <div style={{...CH.msgText,...(isMe?{color:"#F7F3EC"}:{})}}>{msg.text}</div>
+                  <div style={{...CH.msgTime, ...(isMe ? {color:"rgba(255,255,255,0.6)"} : {})}}>
+                    {formatTime(msg.sentAt)}
+                    {isAdmin && (
+                      <button style={CH.deleteBtn} onClick={() => deleteMessage(msg.id)}>✕</button>
+                    )}
+                  </div>
+                </div>
+                {isMe && (
+                  <div style={{...CH.avatar, background: me.color}}>
+                    {me.name[0].toUpperCase()}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+        <div ref={bottomRef} />
+      </div>
+
+      <div style={CH.inputRow}>
+        <input
+          style={CH.input}
+          placeholder={"Message " + activeGroup?.name + "…"}
+          value={text}
+          onChange={e => setText(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && !e.shiftKey && handleSend()}
+          maxLength={500}
+        />
+        <button style={{...CH.sendBtn, ...((!text.trim()||sending)?{opacity:.4}:{})}} onClick={handleSend} disabled={!text.trim()||sending}>
+          {sending ? "…" : "Send ↑"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const CH = {
+  wrap:        { display:"flex", flexDirection:"column", height:"calc(100vh - 140px)", maxWidth:760, margin:"0 auto" },
+  header:      { display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 },
+  title:       { fontSize:22, fontWeight:"bold", color:"#1B2A4A", margin:0 },
+  memberCount: { fontSize:13, color:"#8A9BB0", fontFamily:"system-ui,sans-serif" },
+  feed:        { flex:1, overflowY:"auto", display:"flex", flexDirection:"column", gap:4, padding:"8px 0", marginBottom:12 },
+  noMessages:  { textAlign:"center", color:"#8A9BB0", fontFamily:"system-ui,sans-serif", fontSize:14, padding:"40px 0" },
+  dateDivider: { textAlign:"center", fontSize:11, color:"#8A9BB0", fontFamily:"system-ui,sans-serif", textTransform:"uppercase", letterSpacing:"0.08em", margin:"12px 0 8px", position:"relative" },
+  msgRow:      { display:"flex", alignItems:"flex-end", gap:8, padding:"2px 0" },
+  msgRowMe:    { flexDirection:"row-reverse" },
+  avatar:      { width:28, height:28, borderRadius:"50%", color:"#fff", fontWeight:700, fontSize:12, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"system-ui,sans-serif", flexShrink:0, marginBottom:2 },
+  bubble:      { maxWidth:"72%", padding:"10px 14px", borderRadius:16, display:"flex", flexDirection:"column", gap:4 },
+  bubbleThem:  { background:"#fff", border:"1px solid #E0D9CF", borderBottomLeftRadius:4 },
+  bubbleMe:    { background:"#1B2A4A", borderBottomRightRadius:4 },
+  senderName:  { fontSize:11, fontWeight:700, color:"#C9922A", fontFamily:"system-ui,sans-serif" },
+  msgText:     { fontSize:14, color:"#1B2A4A", lineHeight:1.5, fontFamily:"system-ui,sans-serif", wordBreak:"break-word" },
+  msgTextMe:   { color:"#F7F3EC" },
+  msgTime:     { fontSize:10, color:"#8A9BB0", fontFamily:"system-ui,sans-serif", display:"flex", alignItems:"center", gap:6 },
+  deleteBtn:   { background:"none", border:"none", color:"#C0514A", cursor:"pointer", fontSize:10, padding:"0 2px", opacity:0.6 },
+  inputRow:    { display:"flex", gap:10, padding:"12px 0", borderTop:"1px solid #E0D9CF" },
+  input:       { flex:1, padding:"10px 16px", border:"1px solid #D8D2C8", borderRadius:24, fontSize:15, fontFamily:"system-ui,sans-serif", color:"#1B2A4A", background:"#fff", outline:"none" },
+  sendBtn:     { background:"#C9922A", color:"#fff", border:"none", padding:"10px 20px", borderRadius:24, cursor:"pointer", fontSize:14, fontFamily:"system-ui,sans-serif", fontWeight:600, whiteSpace:"nowrap" },
+  empty:       { display:"flex", flexDirection:"column", alignItems:"center", gap:12, padding:"60px 20px", textAlign:"center" },
+  emptyTitle:  { fontSize:22, fontWeight:"bold", color:"#1B2A4A", margin:0 },
+  emptyText:   { fontSize:15, color:"#8A9BB0", fontFamily:"system-ui,sans-serif", maxWidth:400, lineHeight:1.6, margin:0 },
 };
 
 const VS = {
