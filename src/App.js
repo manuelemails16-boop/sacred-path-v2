@@ -220,9 +220,11 @@ export default function App() {
 
   // Bible reader
   const BIBLE_API_KEY = "OFdsFdkZ6kvCdbA8Dez2X";
+  // Bible IDs from api.scripture.api.bible
+  // NIV: de4e12af7f28f599-02, The Message: 97b9b9d76e4f0988-01
   const BIBLE_IDS = {
-    NIV:     "78a9f6124f344018-01", // NIV
-    MSG:     "65eec8e0b60e656b-01", // The Message
+    NIV: "de4e12af7f28f599-02",
+    MSG: "97b9b9d76e4f0988-01",
   };
 
   const parseChapterRef = (ch) => {
