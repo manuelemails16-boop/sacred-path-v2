@@ -1358,8 +1358,11 @@ function ChatView({ chatMessages, sendMessage, deleteMessage, me, isAdmin, activ
 // ── Bible Viewer ─────────────────────────────────────────────────────────────
 function BibleViewer({ bibleChapter, setBibleChapter, loadBibleChapter }) {
   const { ch, translation, text, loading } = bibleChapter;
+  const [copyBtn, setCopyBtn] = useState(null); // {x, y, text}
+  const [copied, setCopied] = useState(false);
+  const bodyRef = useRef(null);
 
-  const switchTranslation = (t) => { if (t !== translation) loadBibleChapter(ch, t); };
+  const switchTranslation = (t) => { if (t !== translation) { setCopyBtn(null); loadBibleChapter(ch, t); } };
 
   const cleanText = (raw) => {
     if (!raw) return "";
@@ -1370,6 +1373,41 @@ function BibleViewer({ bibleChapter, setBibleChapter, loadBibleChapter }) {
       .replace(/&lt;/g, "<")
       .replace(/&gt;/g, ">")
       .trim();
+  };
+
+  const handleMouseUp = () => {
+    const selection = window.getSelection();
+    const selected = selection?.toString().trim();
+    if (!selected || selected.length < 2) { setCopyBtn(null); return; }
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+    const bodyRect = bodyRef.current?.getBoundingClientRect();
+    if (!bodyRect) return;
+    setCopyBtn({
+      x: rect.left - bodyRect.left + rect.width / 2,
+      y: rect.top - bodyRect.top - 44,
+      text: selected + " — " + ch + " (" + translation + ")",
+    });
+    setCopied(false);
+  };
+
+  const handleCopy = async () => {
+    if (!copyBtn) return;
+    try {
+      await navigator.clipboard.writeText(copyBtn.text);
+      setCopied(true);
+      setTimeout(() => { setCopyBtn(null); setCopied(false); }, 1500);
+    } catch(e) {
+      // fallback
+      const el = document.createElement("textarea");
+      el.value = copyBtn.text;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+      setCopied(true);
+      setTimeout(() => { setCopyBtn(null); setCopied(false); }, 1500);
+    }
   };
 
   return (
@@ -1385,9 +1423,30 @@ function BibleViewer({ bibleChapter, setBibleChapter, loadBibleChapter }) {
             ))}
           </div>
         </div>
-        <button style={BV.closeBtn} onClick={() => setBibleChapter(null)}>Close</button>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <span style={{fontSize:11,color:"#8A9BB0",fontFamily:"system-ui"}}>Select text to copy</span>
+          <button style={BV.closeBtn} onClick={() => setBibleChapter(null)}>Close</button>
+        </div>
       </div>
-      <div style={BV.body}>
+      <div style={{...BV.body, position:"relative"}} ref={bodyRef} onMouseUp={handleMouseUp} onTouchEnd={handleMouseUp}>
+        {copyBtn && (
+          <button
+            style={{
+              position:"absolute", left:copyBtn.x, top:copyBtn.y,
+              transform:"translateX(-50%)",
+              background: copied ? "#5C8C6A" : "#1B2A4A",
+              color:"#fff", border:"none", borderRadius:20,
+              padding:"6px 16px", fontSize:13, fontFamily:"system-ui,sans-serif",
+              fontWeight:600, cursor:"pointer", zIndex:10,
+              boxShadow:"0 4px 12px rgba(0,0,0,0.2)",
+              whiteSpace:"nowrap",
+            }}
+            onMouseDown={e => e.preventDefault()}
+            onClick={handleCopy}
+          >
+            {copied ? "✓ Copied!" : "📋 Copy verse"}
+          </button>
+        )}
         {loading ? (
           <div style={BV.loading}>Loading {ch}...</div>
         ) : (
