@@ -1554,7 +1554,7 @@ function HomeView({ me, leaderboard, planDay, setView, setModal, ctx, activeGrou
           <StatCard label={activeGroup?"Group":"Mode"} value={activeGroup?activeGroup.name:"Solo"} sub={activeGroup?(activeGroup.users||[]).length+"/"+MAX_USERS+" members":"personal"} />
           <StatCard label="Leading" value={leader?.name||"—"} sub={(leader?.total||0)+" chapters"} color={leader?.color} />
           <StatCard label="Your streak" value={String(leaderboard.find(u=>u.name===me?.name)?.streak||0)} sub="days in a row" />
-          <StatCard label="Plan day" value={planDay} sub="of 365" />
+          <StatCard label="Plan day" value={nextUnread?.day || planDay} sub="of 365" />
         </div>
       )}
 
